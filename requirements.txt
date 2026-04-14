@@ -1,0 +1,6 @@
+google-genai
+python-dotenv
+pypdf
+faiss-cpu
+sentence-transformers
+langchain-text-splitters
