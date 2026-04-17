@@ -1,11 +1,16 @@
-google-genai
-python-dotenv
-pypdf
-faiss-cpu
-sentence-transformers
-langchain-text-splitters
+# FastAPI 
+fastapi
 uvicorn[standard]
 python-multipart
-fastapi
+pypdf
+# Embeddings 
+fastembed
 numpy
+# LangChain 
+langchain-text-splitters
+# Google Gemini API
+google-genai
+# Utilities
+python-dotenv
 pydantic
+faiss-cpu

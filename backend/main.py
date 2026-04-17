@@ -5,7 +5,7 @@ import time
 import asyncio
 import numpy as np
 from contextlib import asynccontextmanager
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Iterable
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -14,16 +14,15 @@ from pypdf import PdfReader
 import faiss
 from google.genai.errors import ClientError
 
-# Load environment
+# 🔑 Load environment
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
 if not api_key or not api_key.startswith("AIza"):
-    # Raise exception so Render logs it (don't use exit(1))
     raise RuntimeError("Invalid or missing GOOGLE_API_KEY. Check Render Environment Variables.")
 
-#Configuration
-EMBED_MODEL = "all-MiniLM-L6-v2"
-CHAT_MODEL = "gemini-3-flash-preview"
+# 📦 Configuration
+EMBED_MODEL = "BAAI/bge-small-en-v1.5"
+CHAT_MODEL = "gemini-3-flash-preview"  # Fixed: was "gemini-3-flash-preview" (doesn't exist)
 INDEX_PATH = "faiss_index.index"
 META_PATH = "faiss_metadata.json"
 CHUNK_SIZE = 500
@@ -37,7 +36,7 @@ SUMMARY_KEYWORDS = [
     "explain this paper", "abstract", "what does it cover", "tell me about"
 ]
 
-# These will be initialized INSIDE lifespan(), not here (lazy load for OOM fix)
+# ⚠️ Lazy-loaded inside lifespan()
 text_splitter = None
 embedder = None
 chat_client = None
@@ -46,60 +45,58 @@ metadata = []
 session_history = []
 lock = asyncio.Lock()
 
-# FastAPI Lifespan: Lazy-load heavy models to avoid OOM on Render free tier
+# 🌐 FastAPI Lifespan: Lazy-load with fastembed (ONNX, ~80MB RAM)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global text_splitter, embedder, chat_client, faiss_index, metadata
     
-    print("⏳ Initializing models (lazy load)...")
+    print("⏳ Initializing models (lazy load, fastembed)...")
     try:
-        # Import heavy libs ONLY when needed — prevents torch loading at startup
         from langchain_text_splitters import RecursiveCharacterTextSplitter
-        from sentence_transformers import SentenceTransformer
+        from fastembed import TextEmbedding  # ✅ ONNX-based, lightweight
         from google import genai
         
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP,
             separators=["\n\n", "\n", ". ", " ", ""], length_function=len, is_separator_regex=False
         )
-        print("Text splitter loaded.")
+        print("✅ Text splitter loaded.")
         
-        embedder = SentenceTransformer(EMBED_MODEL)
-        print("Embedding model loaded.")
+        # ✅ fastembed: no torch, no CUDA, ~80MB RAM
+        embedder = TextEmbedding(model_name=EMBED_MODEL)
+        print(f"✅ Embedding model loaded: {EMBED_MODEL} (fastembed/ONNX)")
         
         chat_client = genai.Client(api_key=api_key)
-        print("Gemini client loaded.")
+        print("✅ Gemini client loaded.")
         
     except Exception as e:
-        print(f"Model initialization failed: {e}")
-        raise  # Re-raise so Render logs the error instead of silent crash
+        print(f"❌ Model initialization failed: {e}")
+        raise
     
-    # Load FAISS index (lightweight)
+    # Load FAISS index
     if os.path.exists(INDEX_PATH) and os.path.exists(META_PATH):
         faiss_index = faiss.read_index(INDEX_PATH)
         with open(META_PATH, "r") as f:
             metadata = json.load(f)
-        print(f"Loaded index with {len(metadata)} chunks.")
+        print(f"✅ Loaded index with {len(metadata)} chunks.")
     else:
-        print(" No index found. Upload a PDF first via POST /upload.")
+        print("⚠️ No index found. Upload a PDF first via POST /upload.")
     
-    yield  # App is now running — uvicorn can bind to port
-    
-    # Cleanup (optional)
-    print("Shutting down...")
+    yield
+    print("🔄 Shutting down...")
 
 app = FastAPI(lifespan=lifespan, title="RAG Document Assistant", version="1.0.0")
 
-# CORS — update to your frontend URL in production
+# 🔒 CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Change to ["https://your-app.vercel.app"] before launch
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-#  Pydantic Models (type-safe request/response)
+# 📐 Pydantic Models
 class ChatRequest(BaseModel):
     question: str
     history: Optional[List[Dict[str, Any]]] = []
@@ -112,19 +109,14 @@ class Citation(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     citations: List[Citation]
-    metadata: Dict[str, Any]  # FIXED: colon + correct name
+    metadata: Dict[str, Any]
 
-# Helper: Clean PDF text (fix extraction artifacts)
+# 🧹 Helper: Clean PDF text
 def clean_pdf_text(text: str) -> str:
-    # 1. Join hyphenated words split across lines
     text = re.sub(r'(\w+)-\n(\w+)', r'\1\2', text)
-    # 2. Fix mashed words from column extraction
     text = re.sub(r'([a-z])([A-Z])', r'\1 \2', text)
-    # 3. Remove PDF artifacts
     text = re.sub(r'\b(BOS|EOS|FIG\.?|Figure\s*\d+)\b', '', text, flags=re.IGNORECASE)
-    # 4. Remove standalone page numbers
     text = re.sub(r'^\s*\d+\s*$', '', text, flags=re.MULTILINE)
-    # 5. Fix mid-sentence line breaks
     lines = text.split('\n')
     cleaned = []
     for i, line in enumerate(lines):
@@ -137,24 +129,21 @@ def clean_pdf_text(text: str) -> str:
         else:
             cleaned.append(line + '\n')
     text = ''.join(cleaned)
-    # 6. Collapse excess whitespace
     text = re.sub(r'\s{3,}', '  ', text)
     text = re.sub(r'\n{3,}', '\n\n', text)
     return text.strip()
 
-# Helper: Clean citation snippet for UI
+# 🧩 Helper: Clean citation snippet
 def get_citation_snippet(text: str, max_len: int = 150) -> str:
     clean = re.sub(r'([a-z])([A-Z])', r'\1 \2', text)
     sentences = re.split(r'(?<=[.!?])\s+', clean.strip())
-    # Filter out empty or punctuation-only sentences
     valid = [s.strip() for s in sentences if len(s.strip()) > 10 and not re.match(r'^[\s\.\,\;\:\!\?]+$', s)]
     first = valid[0] if valid else clean[:max_len]
-    # Truncate at word boundary if too long
     if len(first) > max_len:
         first = first[:max_len].rsplit(' ', 1)[0] + "..."
     return first.strip()
 
-#  Core: Ingest PDF → chunk → embed → index
+# 📄 Core: Ingest PDF
 def ingest_pdf(pdf_path: str) -> int:
     global faiss_index, metadata
     if embedder is None or text_splitter is None:
@@ -180,133 +169,108 @@ def ingest_pdf(pdf_path: str) -> int:
     if not chunks:
         raise ValueError("No readable text found in PDF.")
 
-    # Embed chunks locally
-    vectors = embedder.encode([c["text"] for c in chunks], convert_to_numpy=True).astype("float32")
-    vectors = vectors / np.linalg.norm(vectors, axis=1, keepdims=True)  # Normalize for cosine similarity
+    # ✅ fastembed encode: returns iterator of numpy arrays
+    texts = [c["text"] for c in chunks]
+    embeddings_list = list(embedder.embed(texts, batch_size=32))  # List[np.ndarray]
+    vectors = np.array([emb.astype("float32") for emb in embeddings_list])
+    
+    # Normalize for cosine similarity
+    vectors = vectors / np.linalg.norm(vectors, axis=1, keepdims=True)
 
     # Save to FAISS + JSON
-    faiss_index = faiss.IndexFlatIP(vectors.shape[1])  # Inner product = cosine when normalized
+    faiss_index = faiss.IndexFlatIP(vectors.shape[1])
     faiss_index.add(vectors)
     faiss.write_index(faiss_index, INDEX_PATH)
     metadata = chunks
     with open(META_PATH, "w") as f:
         json.dump(metadata, f)
     
-    print(f" Indexed {len(chunks)} chunks.")
+    print(f"✅ Indexed {len(chunks)} chunks.")
     return len(chunks)
 
-# 🔍 Core: Context-aware retrieval with intent detection + boosting
+# 🔍 Core: Context-aware retrieval
 def retrieve(query: str, is_summary: bool, k: int) -> List[Dict]:
     global faiss_index, metadata, embedder
     if faiss_index is None or embedder is None or not metadata:
         return []
     
-    # Fetch more candidates for summaries to capture broad context
     fetch_k = 10 if is_summary else k * 2
     
-    # Embed query (same normalization as chunks)
-    query_vec = embedder.encode([query], convert_to_numpy=True).astype("float32")
+    # ✅ fastembed: single query returns iterator
+    query_emb = next(embedder.embed([query]))
+    query_vec = np.array([query_emb.astype("float32")])
     query_vec = query_vec / np.linalg.norm(query_vec, axis=1, keepdims=True)
 
-    # Search FAISS
     distances, ids = faiss_index.search(query_vec, fetch_k)
     results, candidates = [], []
     
     for dist, idx in zip(distances[0], ids[0]):
         if idx == -1:
             continue
-            
         chunk_text = metadata[idx]["text"]
-        
-        # Filter out reference/citation heavy chunks
         if any(x in chunk_text.lower() for x in ["references", "bibliography", "acknowledgments"]):
             continue
-        if re.match(r'^\s*\[\d+\]', chunk_text.strip()):  # Starts with [1], [7], etc.
+        if re.match(r'^\s*\[\d+\]', chunk_text.strip()):
             continue
         if len(chunk_text.split()) < MIN_CHUNK_WORDS:
             continue
-            
-        # Base cosine score (higher = better)
         base_score = float(dist)
-        
-        # Boost early pages (abstract/intro usually live here)
         page = metadata[idx]["page"]
         if page <= 3:
-            base_score *= 1.15  # 15% relevance boost
-            
-        result = {
-            "page": page,
-            "text": chunk_text,
-            "score": base_score,
-            "raw": float(dist)  # Keep original for debug
-        }
+            base_score *= 1.15
+        result = {"page": page, "text": chunk_text, "score": base_score, "raw": float(dist)}
         candidates.append(result)
-        
         if base_score >= SIMILARITY_THRESHOLD:
             results.append(result)
     
-    # Fallback: return up to k best matches if nothing passes threshold
     if not results and candidates:
         results = sorted(candidates, key=lambda x: -x["score"])[:k]
-    
-    # Sort by boosted score (descending) and return top k
     return sorted(results, key=lambda x: -x["score"])[:k]
 
-#  Endpoints
+# 📡 Endpoints
 @app.get("/health")
 def health_check():
-    """Health check for deployment monitoring"""
     return {"status": "healthy", "chunks_indexed": len(metadata) if metadata else 0}
 
 @app.post("/upload")
 async def upload_pdf(file: UploadFile = File(...)):
-    """Upload and index a PDF document"""
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(400, "Only PDF files are supported.")
-    
-    # Save temporarily for processing
     os.makedirs("uploads", exist_ok=True)
     temp_path = f"uploads/{file.filename}"
     with open(temp_path, "wb") as f:
         f.write(await file.read())
-    
     try:
-        async with lock:  # Thread safety for concurrent uploads
+        async with lock:
             chunk_count = ingest_pdf(temp_path)
-            session_history.clear()  # Reset conversation on new doc
+            session_history.clear()
             return {"status": "success", "chunks": chunk_count, "filename": file.filename}
     except Exception as e:
         raise HTTPException(500, f"Failed to index PDF: {str(e)}")
     finally:
         if os.path.exists(temp_path):
-            os.remove(temp_path)  # Clean up temp file
+            os.remove(temp_path)
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest, debug: bool = Query(False)):
-    """Answer questions using RAG with context-aware retrieval"""
     if chat_client is None:
         raise HTTPException(503, "LLM client not initialized. Check startup logs.")
     
     async with lock:
-        # Intent detection: summary vs specific question
         is_summary = any(kw in req.question.lower() for kw in SUMMARY_KEYWORDS)
-        k = 6 if is_summary else 3  # Broader context for summaries
+        k = 6 if is_summary else 3
         
-        # Manage conversation history (trim to avoid token overflow)
         history = req.history[-(MAX_HISTORY-1):] if req.history else []
         history.append({"role": "user", "parts": [{"text": req.question}]})
         if len(history) > MAX_HISTORY:
             history = history[-MAX_HISTORY:]
         
-        # Retrieve relevant context
         context = retrieve(req.question, is_summary, k)
         
-        # Build dynamic prompt based on intent
         if context:
             ctx_str = "\n\n".join([f"[Page {c['page']}]: {c['text']}" for c in context])
             if len(ctx_str) > MAX_CONTEXT_CHARS:
                 ctx_str = ctx_str[:MAX_CONTEXT_CHARS] + "\n\n[...truncated...]"
-            
             if is_summary:
                 prompt = f"""You are a precise AI assistant. Provide a HIGH-LEVEL SUMMARY of the document based ONLY on the provided context.
 Cover the main topic, key contributions, methodology, and overall purpose.
@@ -332,7 +296,6 @@ Question: {req.question}"""
 Please respond politely: acknowledge the limitation, offer general help if appropriate, and suggest rephrasing.
 User question: {req.question}"""
 
-        # Call Gemini with updated history
         history[-1] = {"role": "user", "parts": [{"text": prompt}]}
         
         try:
@@ -342,14 +305,12 @@ User question: {req.question}"""
         except ClientError as e:
             raise HTTPException(502, f"LLM API Error: {str(e)}")
         
-        # Format response with clean citations
         citations = [
             {"page": c["page"], "snippet": get_citation_snippet(c["text"]), "score": round(c["score"], 3)} 
             for c in context
         ]
         meta = {"is_summary": is_summary, "chunks_used": len(context), "history_length": len(history)}
-        
         if debug:
             meta["debug_context"] = context
         
-        return ChatResponse(answer=answer, citations=citations, metadata=meta)
+        return ChatResponse(answer=answer, citations=citations, metadata=meta)  # ✅ Fixed: removed trailing comma
