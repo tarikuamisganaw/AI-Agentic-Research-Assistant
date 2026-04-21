@@ -1,22 +1,22 @@
 # FastAPI + Uvicorn
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-python-multipart==0.0.9
+fastapi
+uvicorn[standard]
+python-multipart
 
 # PDF + Text Processing
-pypdf==5.0.0
+pypdf
 
-# Embeddings (✅ fastembed 0.3.6 = no Rust deps, ~120MB RAM)
-fastembed==0.3.6
-numpy==1.26.4
+# Embeddings (sentence-transformers works on HF Spaces 16GB RAM)
+sentence-transformers
+numpy
 
-# LangChain (text splitting only) - compatible with fastembed's huggingface-hub
-langchain-text-splitters==0.2.0
+# LangChain (text splitting only)
+langchain-text-splitters==0.3.0
 
-# Google Gemini API - ✅ Valid version
-google-genai==1.12.1
+# Google Gemini API (pinned to valid version)
+google-genai
 
 # Utilities
-python-dotenv==1.0.1
-pydantic==2.6.0
-faiss-cpu==1.8.0
+python-dotenv
+pydantic
+faiss-cpu
