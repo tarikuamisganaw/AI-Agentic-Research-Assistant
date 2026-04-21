@@ -21,14 +21,14 @@ load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"  # Hide download progress bars
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"    # Only show errors from transformers
-warnings.filterwarnings("ignore", category=UserWarning, module="sentence_transformers")  # Ignore sentence-transformers warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="sentence_transformers")  
 logging.getLogger("transformers").setLevel(logging.ERROR)  # Reduce transformers log level
 if not api_key or not api_key.startswith("AIza"):
     raise RuntimeError("Invalid or missing GOOGLE_API_KEY. Set it in HF Secrets.")
 
 # Configuration
 EMBED_MODEL = "all-MiniLM-L6-v2"
-CHAT_MODEL = "gemini-3-flash-preview"  # Fixed: valid model name (was "gemini-3-flash-preview")
+CHAT_MODEL = "gemini-3-flash-preview"
 INDEX_PATH = "faiss_index.index"
 META_PATH = "faiss_metadata.json"
 CHUNK_SIZE = 500
@@ -84,7 +84,7 @@ app = FastAPI(lifespan=lifespan, title="RAG Document Assistant", version="1.0.0"
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Change to ["https://your-app.vercel.app"] before launch
+    allow_origins=["*"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -257,7 +257,7 @@ async def chat_endpoint(req: ChatRequest, debug: bool = Query(False)):
             if len(ctx_str) > MAX_CONTEXT_CHARS:
                 ctx_str = ctx_str[:MAX_CONTEXT_CHARS] + "\n\n[...truncated...]"
             
-            # ✅ FIXED INDENTATION BELOW
+          
             if is_summary:
                 prompt = f"""You are a precise AI assistant. Provide a HIGH-LEVEL SUMMARY of the document based ONLY on the provided context.
 Cover the main topic, key contributions, methodology, and overall purpose.
