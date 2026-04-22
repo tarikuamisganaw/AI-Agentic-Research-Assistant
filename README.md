@@ -2,7 +2,7 @@
 
 A self-verifying RAG system that evaluates answer confidence, routes to clarifying questions when uncertain, and grounds responses in uploaded PDFs. Built for accuracy, transparency, and production reliability.
 
-🌐 **Live Demo**: [https://agentic-researcher.vercel.app](https://agentic-researcher.vercel.app)  
+🌐 **Live Demo**: [https://ai-agentic-research-assistant.vercel.app/](https://ai-agentic-research-assistant.vercel.app/)  
 ---
 
 ## ✨ Features
