@@ -28,10 +28,10 @@ body {
   margin: 0;
   padding: 0;
   background: var(--bg-color);
-  background-image: 
-    radial-gradient(at 0% 0%, hsla(253,16%,7%,0.05) 0, transparent 50%), 
-    radial-gradient(at 50% 0%, hsla(225,39%,30%,0.05) 0, transparent 50%), 
-    radial-gradient(at 100% 0%, hsla(339,49%,30%,0.05) 0, transparent 50%);
+  background-image:
+    radial-gradient(at 0% 0%, hsla(253, 16%, 7%, 0.05) 0, transparent 50%),
+    radial-gradient(at 50% 0%, hsla(225, 39%, 30%, 0.05) 0, transparent 50%),
+    radial-gradient(at 100% 0%, hsla(339, 49%, 30%, 0.05) 0, transparent 50%);
   color: var(--text-main);
   font-family: var(--font-body);
   min-height: 100vh;
@@ -43,7 +43,12 @@ body {
   box-sizing: border-box;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-heading);
   margin: 0;
 }
@@ -82,7 +87,8 @@ h1, h2, h3, h4, h5, h6 {
 .app-title {
   font-size: 2.5rem;
   font-weight: 700;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
+  background: linear-gradient(135deg, #ea8566 0%, #75a24b 100%);
+  /* ✅ Purple gradient */
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   display: inline-block;
@@ -372,12 +378,15 @@ h1, h2, h3, h4, h5, h6 {
   animation: dot-flashing 1s infinite linear alternate;
   animation-delay: 0.5s;
 }
-.dot-flashing::before, .dot-flashing::after {
+
+.dot-flashing::before,
+.dot-flashing::after {
   content: '';
   display: inline-block;
   position: absolute;
   top: 0;
 }
+
 .dot-flashing::before {
   left: -12px;
   width: 8px;
@@ -387,6 +396,7 @@ h1, h2, h3, h4, h5, h6 {
   animation: dot-flashing 1s infinite alternate;
   animation-delay: 0s;
 }
+
 .dot-flashing::after {
   left: 12px;
   width: 8px;
@@ -398,24 +408,49 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @keyframes dot-flashing {
-  0% { background-color: white; }
-  50%, 100% { background-color: rgba(255, 255, 255, 0.3); }
+  0% {
+    background-color: white;
+  }
+
+  50%,
+  100% {
+    background-color: rgba(255, 255, 255, 0.3);
+  }
 }
 
 /* Animations */
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideIn {
-  from { opacity: 0; transform: translateX(-10px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 /* Toast */
@@ -436,12 +471,24 @@ h1, h2, h3, h4, h5, h6 {
   animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.toast.success { border-left: 4px solid var(--success); }
-.toast.error { border-left: 4px solid var(--error); }
+.toast.success {
+  border-left: 4px solid var(--success);
+}
+
+.toast.error {
+  border-left: 4px solid var(--error);
+}
 
 @keyframes slideUpFade {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Mobile Responsiveness */
@@ -451,9 +498,17 @@ h1, h2, h3, h4, h5, h6 {
     padding: 1.5rem;
     border-radius: 16px;
   }
-  
-  .app-title { font-size: 2rem; }
-  
-  .upload-group { flex-direction: column; align-items: stretch; }
-  .btn { width: 100%; }
+
+  .app-title {
+    font-size: 2rem;
+  }
+
+  .upload-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn {
+    width: 100%;
+  }
 }
