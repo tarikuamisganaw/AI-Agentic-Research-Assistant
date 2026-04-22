@@ -108,3 +108,5 @@ The frontend was deliberately built using Vanilla CSS (instead of highly opinion
 ## 👨‍💻 Contributing
 
 Contributions are always welcome! Feel free to open an issue or submit a Pull Request if you have ideas on how to improve the query routing or extend the file ingestion beyond PDFs.
+
+**You can access the deployed project at:** https://ai-knowledge-assistant-pied.vercel.app/

@@ -112,30 +112,18 @@ async def chat_endpoint(req: ChatRequest, debug: bool = Query(False)):
             if len(ctx_str) > MAX_CONTEXT_CHARS:
                 ctx_str = ctx_str[:MAX_CONTEXT_CHARS] + "\n\n[...truncated...]"
             
+           # FIX: Move conditional logic OUTSIDE f-string to avoid backslash-in-expression error
             if is_summary:
-                prompt = f"""You are a precise AI assistant. Provide a HIGH-LEVEL SUMMARY of the document based ONLY on the provided context.
-Cover the main topic, key contributions, methodology, and overall purpose.
-If the context lacks a clear overview, state what you can infer and note limitations.
-Always cite page numbers.
-
-Context:
-{ctx_str}
-
-Question: {req.question}"""
+                instruction = "Provide a HIGH-LEVEL SUMMARY covering main topic, contributions, and methodology by explaining well.Avoid LaTeX, math notation ($...$), or academic symbols."
             else:
-                prompt = f"""You are a precise AI assistant. Answer ONLY using the provided context.
-If the answer is not in the context, say "I don't know."
-Be concise and clear. If multiple answers exist, explain clearly.
-Always cite page numbers.
-
+                instruction = 'Answer ONLY using the provided context.Avoid LaTeX, math notation ($...$), or academic symbols. Say "I don\'t know" if unsure.  Always cite page numbers.'
+            
+            prompt = f"""You are an AI assistant that explain concepts well. {instruction}
 Context:
 {ctx_str}
-
 Question: {req.question}"""
         else:
-            prompt = f"""You are a helpful assistant. The user asked about a document, but no relevant context was retrieved.
-Please respond politely: acknowledge the limitation, offer general help if appropriate, and suggest rephrasing.
-User question: {req.question}"""
+            prompt = f"No relevant context found. Politely acknowledge this and offer general help. Question: {req.question}"
 
         history[-1] = {"role": "user", "parts": [{"text": prompt}]}
         
@@ -146,12 +134,9 @@ User question: {req.question}"""
         except ClientError as e:
             raise HTTPException(502, f"LLM API Error: {str(e)}")
         
-        citations = [
-            {"page": c["page"], "snippet": get_citation_snippet(c["text"]), "score": round(c["score"], 3)} 
-            for c in context
-        ]
+        citations = [{"page": c["page"], "snippet": get_citation_snippet(c["text"]), "score": round(c["score"], 3)} for c in context]
         meta = {"is_summary": is_summary, "chunks_used": len(context), "history_length": len(history)}
-        if debug:
-            meta["debug_context"] = context
+        
+        if debug: meta["debug_context"] = context
         
         return ChatResponse(answer=answer, citations=citations, metadata=meta)
