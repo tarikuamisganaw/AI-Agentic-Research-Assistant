@@ -1,112 +1,122 @@
-# 🧠 AI Knowledge Assistant (RAG Document Assistant)
+# 🤖 AI Agentic Research Assistant
 
-![Python](https://img.shields.io/badge/Python-3.11+-blue.svg?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-00a393.svg?logo=fastapi&logoColor=white)
-![React](https://img.shields.io/badge/React-18.2+-61dafb.svg?logo=react&logoColor=white)
-![Vite](https://img.shields.io/badge/Vite-5.0+-646cff.svg?logo=vite&logoColor=white)
-![FAISS](https://img.shields.io/badge/FAISS-Vector_Search-ff69b4.svg)
-![Gemini AI](https://img.shields.io/badge/Google_Gemini-AI-orange.svg)
+A self-verifying RAG system that evaluates answer confidence, routes to clarifying questions when uncertain, and grounds responses in uploaded PDFs. Built for accuracy, transparency, and production reliability.
 
-An enterprise-grade **Retrieval-Augmented Generation (RAG)** application designed to ingest complex PDF documents (like research papers or technical manuals) and provide accurate, context-aware answers complete with page citations.
-
-Built with a focus on performant vector similarity search and an exceptionally polished user interface.
-
+🌐 **Live Demo**: [https://agentic-researcher.vercel.app](https://agentic-researcher.vercel.app)  
 ---
 
-## 🌟 Key Features
+## ✨ Features
 
-* **Context-Aware Insights**: Ask natural language questions and get synthesized answers extracted directly from your uploaded materials.
-* **Precise Citations**: Every answer provides exact snippets and page numbers, eliminating AI hallucinations and allowing you to verify sources instantly.
-* **Intelligent Query Intent Detection**: Automatically adjusts the chunk retrieval volume based on whether the user asks for a simple fact vs. a comprehensive summary.
-* **Privacy & Cost Optimized**: Utilizes local `SentenceTransformers` (`all-MiniLM-L6-v2`) for generating embeddings on the host machine, meaning only the most relevant text chunks are sent to the LLM.
-* **Sub-Millisecond Vector Search**: Uses Meta's `FAISS` library for blazingly fast `IndexFlatIP` (Inner Product) similarity search.
-* **Premium Glassmorphism UI**: A truly stunning Vite and React application styled with vanilla CSS, featuring dynamic animations and responsive design.
+- 📄 **PDF Ingestion**: Automatic text cleaning, chunking, and FAISS vector indexing
+- 🔍 **Context-Aware Retrieval**: Cosine similarity search with intent-based fetching & early-page boosting
+- 🤖 **Self-Verifying Agent Loop**: Automatically scores answer confidence against retrieved context
+- 🔄 **Smart Routing**: Returns direct answers when confident, triggers clarifying questions when uncertain
+- 📊 **Transparent Metadata**: Confidence scores, verification status, and page-level citations included in every response
+- 🛡️ **Resilient API**: Exponential backoff retry logic for LLM rate limits (503/429)
+- ⚡ **Lightweight & Fast**: No heavy agent frameworks; <200ms verification overhead
 
 ---
 
 ## 🏗️ Architecture
 
-The system follows an advanced, locally-embedded RAG pipeline:
-
-```mermaid
-graph TD;
-    A[User Uploads PDF] --> B[FastAPI Backend];
-    B --> C[Extract & Clean Text];
-    C --> D[Chunk via LangChain Recursive Splitter];
-    D --> E[Local Embedding Model<br/>SentenceTransformer];
-    E --> F[(FAISS Vector Index)];
-    
-    G[User Asks Question] --> H[FastAPI Backend];
-    H --> I[Embed Question];
-    I --> J{FAISS Similarity Search};
-    J -- Retrieve Top K Chunks --> K[Construct Prompt + Context];
-    K --> L((Google Gemini LLM));
-    L -- Formatted Markdown Response --> M[React Frontend UI];
 ```
+User Query → Retrieve Context → LLM Draft Answer → 🔍 Verify Claims → 📊 Score Confidence
+       ↓
+  Confidence ≥ 45%? → Return Answer + Citations
+       ↓ No
+  Trigger Clarifying Fallback → Ask Follow-up → Return to User
+```
+
+**Tech Stack**:
+- **Backend**: FastAPI, `sentence-transformers`, FAISS, Google Gemini API
+- **Frontend**: React + Vite, TailwindCSS
+- **Deployment**: Hugging Face Spaces (Docker), Vercel
+- **Patterns**: Self-verification loop, conditional routing, retry with backoff, CORS-secured API
 
 ---
 
-## 🚀 Quick Start Guide
+## 🚀 Local Setup
 
-Follow these steps to run the knowledge assistant on your local machine.
-
-### 1. Backend Setup
-
-The backend handles the RAG pipeline using FastAPI and FAISS.
-
+### 1. Clone & Install
 ```bash
-# Navigate to backend directory
-cd backend
-
-# Create and activate a virtual environment
+git clone https://github.com/yourusername/ai-agentic-researcher.git
+cd ai-agentic-researcher/backend
 python -m venv venv
-source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-
-# Install dependencies (ensure you have a requirements.txt)
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
+```
 
-# Create an environment file
-echo "GOOGLE_API_KEY=your_gemini_api_key_here" > .env
+### 2. Configure Environment
+Create `backend/.env`:
+```env
+GOOGLE_API_KEY=your_gemini_api_key_here
+```
 
-# Run the FastAPI server
+### 3. Run Backend
+```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
-*The backend API will be running on `http://localhost:8000`.*
+📖 API Docs: `http://localhost:8000/docs`
 
-### 2. Frontend Setup
-
-The frontend is a lightning-fast React application built with Vite.
-
+### 4. Run Frontend (if applicable)
 ```bash
-# Navigate to frontend directory in a new terminal window
-cd frontend
-
-# Install dependencies
+cd ../frontend
 npm install
-
-# Start the Vite development server
 npm run dev
 ```
-*The stunning UI will be available at `http://localhost:5173`.*
 
 ---
 
-## 🧠 Technical Decisions & Challenges
+## 🧪 Test the API
+```bash
+# Health check
+curl https://yourusername-ai-agentic-researcher.hf.space/health
 
-**Why FAISS & Local Embeddings?**
-Instead of sending entire documents to costly third-party embedding APIs, this architecture uses `all-MiniLM-L6-v2` to compute dense vectors directly on the CPU. FAISS then indexing enables instantaneous retrieval. This approach proves that high-quality NLP systems can be both cost-efficient and deeply respectful of data privacy.
+# Upload PDF
+curl -X POST https://yourusername-ai-agentic-researcher.hf.space/upload \
+  -F "file=@research_paper.pdf"
 
-**A Note on Document Storage (`/uploads`)**
-Currently, when a PDF is uploaded, it is sent to a temporary directory (`backend/uploads/`). Once the system successfully extracts and vectorizes the text chunks into the FAISS index, **the original PDF is immediately deleted.**
-* **Why this is optimal:** The LLM generator only needs the text chunks and their embeddings to synthesize answers. Deleting the raw PDF saves permanent storage space and reduces data-retention liabilities.
-
-**UI Refinement**
-The frontend was deliberately built using Vanilla CSS (instead of highly opinionated frameworks) to demonstrate mastery of core web technologies, responsive layout techniques, and modern aesthetic trends like glassmorphism.
+# Ask with verification metadata
+curl -X POST https://yourusername-ai-agentic-researcher.hf.space/chat \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What methodology did they use?", "debug": true}'
+```
 
 ---
 
-## 👨‍💻 Contributing
+## 📁 Project Structure
+```
+backend/
+├── main.py          # FastAPI entry point, agent loop, retry logic
+├── agent.py         # Self-verification & clarifying fallback logic
+├── rag.py           # PDF ingestion, FAISS retrieval, embedding
+├── config.py        # Constants & thresholds
+├── models.py        # Pydantic request/response schemas
+├── utils.py         # Text cleaning & citation snippet helpers
+└── requirements.txt
+frontend/            # React/Vite UI (separate deployment)
+Dockerfile           # HF Spaces container config
+```
 
-Contributions are always welcome! Feel free to open an issue or submit a Pull Request if you have ideas on how to improve the query routing or extend the file ingestion beyond PDFs.
+---
 
-**You can access the deployed project at:** https://ai-knowledge-assistant-pied.vercel.app/
+## 🌐 Deployment
+- **Backend**: Dockerized FastAPI deployed to Hugging Face Spaces (CPU, 16GB RAM)
+- **Frontend**: Vite-optimized React app deployed to Vercel
+- **CORS**: Configured for local dev + Vercel production domain
+- **Secrets**: `GOOGLE_API_KEY` managed via HF Repository Secrets
+
+---
+
+## 🎯 Why This Architecture?
+Traditional RAG systems output text blindly, leading to hallucination and low user trust. This project adds a **lightweight agentic verification layer** that:
+1. Evaluates draft answers against source context
+2. Returns a confidence score (`0–100%`)
+3. Automatically routes to clarifying questions when confidence drops below threshold
+4. Maintains sub-second latency without heavy agent frameworks
+
+This pattern is used in production AI systems to balance accuracy, cost, and user experience.
+
+---
+
+

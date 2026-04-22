@@ -1,22 +1,11 @@
-# FastAPI + Uvicorn
 fastapi
 uvicorn[standard]
 python-multipart
-
-# PDF + Text Processing
 pypdf
-
-# Embeddings (sentence-transformers works on HF Spaces 16GB RAM)
 sentence-transformers
 numpy
-
-# LangChain (text splitting only)
-langchain-text-splitters==0.3.0
-
-# Google Gemini API (pinned to valid version)
+langchain-text-splitters
 google-genai
-
-# Utilities
 python-dotenv
 pydantic
 faiss-cpu
