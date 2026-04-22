@@ -78,7 +78,7 @@ function App() {
   return (
     <div className="app-container">
       <header className="app-header">
-        <h1 className="app-title">AI Knowledge Assistant</h1>
+        <h1 className="app-title">AI Agentic Research Assistant</h1>
         <p className="app-subtitle">Upload a document and uncover its insights instantly.</p>
       </header>
 
