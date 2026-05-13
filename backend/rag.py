@@ -1,6 +1,5 @@
 import os
 import json
-import re
 import numpy as np
 import faiss
 from sentence_transformers import SentenceTransformer
@@ -42,11 +41,12 @@ def ingest_pdf(pdf_path: str) -> int:
     with open(META_PATH, "w") as f: json.dump(metadata, f)
     return len(chunks)
 
-def retrieve(query: str, is_summary: bool, k: int) -> list:
+def retrieve(query: str, intent: str, k: int) -> list:
     global faiss_index, metadata, embedder
     if faiss_index is None or not metadata or embedder is None: return []
-    
-    fetch_k = 12 if is_summary else k * 2
+
+    is_summary = intent == "summary"
+    fetch_k = max(12, k * 3) if is_summary else max(k * 2, k + 4)
     query_vec = embedder.encode([query], convert_to_numpy=True).astype("float32")
     query_vec /= np.linalg.norm(query_vec, axis=1, keepdims=True)
     distances, ids = faiss_index.search(query_vec, fetch_k)
